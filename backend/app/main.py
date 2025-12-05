@@ -7,7 +7,7 @@ app = FastAPI(title="EHR Anomaly Detection API")
 # CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Your frontend
+    allow_origins=["http://localhost:3000", "http://localhost:5173"],  # Your frontend
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
