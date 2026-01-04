@@ -36,18 +36,14 @@ const Dashboard: React.FC = () => {
       };
 
       const timeoutIds = [
-        setTimeout(() => controllers.stats.abort(), 8000),
-        setTimeout(() => controllers.threats.abort(), 8000),
+        setTimeout(() => controllers.stats.abort(), 30000),
+        setTimeout(() => controllers.threats.abort(), 30000),
       ];
 
       try {
         const [statsRes, threatsRes] = await Promise.all([
-          api.get('/api/monitoring/dashboard/stats', {
-            signal: controllers.stats.signal,
-          }),
-          api.get('/api/threats/history', {
-            signal: controllers.threats.signal,
-          }),
+          api.dashboardStats(),
+          api.threats(10),
         ]);
 
         // Safe data extraction
@@ -76,7 +72,7 @@ const Dashboard: React.FC = () => {
         timeoutIds.forEach(id => clearTimeout(id));
       }
     } catch (err: any) {
-      if (err.name !== 'AbortError') {
+      if (err.name !== 'AbortError' && err.code !== 'ERR_CANCELED') {
         setError('Failed to load dashboard data');
       }
     } finally {

@@ -7,10 +7,13 @@ import logging
 from pathlib import Path
 import pickle
 import os
+import pandas as pd
+import numpy as np
 
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 import config
+from app.routes.threat_detection import THREAT_HISTORY
 
 logger = logging.getLogger(__name__)
 monitoring_bp = Blueprint('monitoring', __name__, url_prefix='/api/monitoring')
@@ -41,11 +44,16 @@ def dashboard():
             }
             logger.warning("⚠️ Metrics file not found; returning defaults")
         
+        # Calculate live stats from history
+        total_threats = len([t for t in THREAT_HISTORY if t['threat_type'] == 1])
+        today_threats = len([t for t in THREAT_HISTORY if t['threat_type'] == 1 and t['timestamp'].startswith(pd.Timestamp.now().isoformat()[:10])])
+        
         return jsonify({
-            "total_threats": 1205,
-            "critical": 45,
-            "warnings": 234,
-            "avg_confidence": 0.92,
+            "total_threats": total_threats,
+            "threats_today": today_threats,
+            "critical": len([t for t in THREAT_HISTORY if t['severity'] == 'critical']),
+            "warnings": len([t for t in THREAT_HISTORY if t['severity'] == 'warning']),
+            "avg_confidence": np.mean([t['confidence'] for t in THREAT_HISTORY]) if THREAT_HISTORY else 0.92,
             "model_accuracy": metrics.get("accuracy", 0.985),
             "model_precision": metrics.get("precision", 0.982),
             "model_recall": metrics.get("recall", 0.987),
@@ -54,7 +62,7 @@ def dashboard():
             "roc_auc": metrics.get("roc_auc", 0.988),
             "confusion_matrix": metrics.get("confusion_matrix", [[950, 20], [15, 15]]),
             "system_status": "healthy",
-            "last_update": "2024-01-03T15:30:00Z"
+            "last_update": pd.Timestamp.now().isoformat()
         }), 200
     
     except Exception as e:

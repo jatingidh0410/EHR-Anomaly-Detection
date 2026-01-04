@@ -20,6 +20,9 @@ import config
 logger = logging.getLogger(__name__)
 threat_bp = Blueprint('threats', __name__, url_prefix='/api/threats')
 
+# ✅ Global in-memory storage for threats (replaced by DB in prod)
+THREAT_HISTORY = []
+
 # Initialize detector globally
 detector = AdvancedThreatDetector()
 try:
@@ -52,6 +55,19 @@ def detect_threat():
             severity = "warning"
         else:
             severity = "info"
+        
+        # Store in history
+        threat_record = {
+            "id": len(THREAT_HISTORY) + 1,
+            "timestamp": pd.Timestamp.now().isoformat(),
+            "prediction": prediction,
+            "confidence": confidence,
+            "severity": severity,
+            "threat_type": 1 if prediction == 1 else 0,
+            "source_ip": "192.168.1.105",  # Simulated
+            "type": "Malware" if prediction == 1 else "Normal"
+        }
+        THREAT_HISTORY.insert(0, threat_record)
         
         return jsonify({
             "is_threat": prediction == 1,
@@ -133,6 +149,22 @@ def detect_batch_csv():
         # Count threats
         threats = sum(1 for p in predictions if p == 1)
         
+
+        # Store in history
+        for p, c in zip(predictions, confidences):
+            if p == 1: # Only store threats
+                threat_record = {
+                    "id": len(THREAT_HISTORY) + 1,
+                    "timestamp": pd.Timestamp.now().isoformat(),
+                    "prediction": int(p),
+                    "confidence": float(c),
+                    "severity": "critical" if float(c) > 0.9 else "warning" if float(c) > 0.8 else "info",
+                    "threat_type": 1,
+                    "source_ip": f"192.168.1.{np.random.randint(100, 255)}",
+                    "type": "Batch Upload"
+                }
+                THREAT_HISTORY.insert(0, threat_record)
+
         return jsonify({
             "filename": file.filename,
             "total_samples": len(X),
@@ -150,12 +182,8 @@ def detect_batch_csv():
 
 @threat_bp.route('/', methods=['GET'])
 def get_threats():
-    """Get recent threats"""
-    return jsonify({
-        "threats": [],
-        "total": 0,
-        "message": "No threats recorded"
-    }), 200
+    limit = request.args.get('limit', default=50, type=int)
+    return jsonify(THREAT_HISTORY[:limit]), 200
 
 @threat_bp.route('/<int:threat_id>', methods=['GET'])
 def get_threat(threat_id):

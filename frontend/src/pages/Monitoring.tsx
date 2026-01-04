@@ -31,7 +31,7 @@ const Monitoring: React.FC = () => {
 
       // Race between API call and timeout
       const response = (await Promise.race([
-        api.get("/api/threats/history", { signal }),
+        api.threats(),
         timeoutPromise,
       ])) as any;
 

@@ -3,7 +3,7 @@ import axios from 'axios';
 // Create axios instance
 const axiosInstance = axios.create({
   baseURL: 'http://localhost:5000',
-  timeout: 10000,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -57,14 +57,14 @@ axiosInstance.interceptors.response.use(
 // API endpoints
 export const api = {
   // Health check
-  health: () => axiosInstance.get('/api/health'),
+  health: () => axiosInstance.get('/api/system/health'),
 
   // Stats
   stats: () => axiosInstance.get('/api/stats'),
 
   // Threats
   threats: (limit: number = 50) =>
-    axiosInstance.get(`/api/threats/history?limit=${limit}`),
+    axiosInstance.get(`/api/threats/?limit=${limit}`),
 
   // Threat search
   searchThreats: (query: string) =>
@@ -76,20 +76,20 @@ export const api = {
 
   // Anomaly detection
   detectAnomaly: (features: number[]) =>
-    axiosInstance.post('/api/anomaly/detect', { features }),
+    axiosInstance.post('/api/threats/detect', { features }),
 
   // Batch processing
   batchProcess: (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-    return axiosInstance.post('/api/anomaly/batch', formData, {
+    return axiosInstance.post('/api/threats/batch-csv', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
 
   // Dashboard stats
   dashboardStats: () =>
-    axiosInstance.get('/api/dashboard/stats'),
+    axiosInstance.get('/api/monitoring/dashboard'),
 
   // Dashboard threats
   dashboardThreats: () =>
@@ -101,7 +101,7 @@ export const api = {
 
   // Admin metrics
   adminMetrics: () =>
-    axiosInstance.get('/api/monitoring/admin/metrics'),
+    axiosInstance.get('/api/admin/metrics'),
 
   // Models stats
   modelsStats: () =>

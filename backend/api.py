@@ -22,7 +22,7 @@ def create_app():
         r"/api/*": {
             "origins": "*",
             "methods": ["GET", "POST", "OPTIONS"],
-            "allow_headers": ["Content-Type"]
+            "allow_headers": ["Content-Type", "Authorization"]
         }
     })
     
@@ -54,10 +54,12 @@ def create_app():
     from app.routes.threat_detection import threat_bp
     from app.routes.monitoring import monitoring_bp
     from app.routes.admin import admin_bp
+    from app.routes.reports import reports_bp
     
     app.register_blueprint(threat_bp)
     app.register_blueprint(monitoring_bp)
     app.register_blueprint(admin_bp)
+    app.register_blueprint(reports_bp)
     
     logger.info("✅ All blueprints registered")
     
