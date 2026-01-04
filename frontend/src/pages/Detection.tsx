@@ -11,9 +11,8 @@ interface PredictionResult {
 }
 
 const Detection: React.FC = () => {
-  const [features, setFeatures] = useState<number[]>(
-    Array(5).fill(0)
-  );
+  const [selectedScenario, setSelectedScenario] = useState('custom');
+  const [features, setFeatures] = useState<number[]>(Array(102).fill(0));
   const [fillStrategy, setFillStrategy] = useState<FillStrategy>('random');
   const [result, setResult] = useState<PredictionResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -28,12 +27,6 @@ const Detection: React.FC = () => {
     updateConfig({ fillStrategy: strategy });
   };
 
-  const handleFeatureChange = (index: number, value: string) => {
-    const num = parseFloat(value) || 0;
-    const newFeatures = [...features];
-    newFeatures[index] = num;
-    setFeatures(newFeatures);
-  };
 
   const handleAutoFill = () => {
     const normalized = normalizeFeatures(features);
@@ -109,26 +102,56 @@ const Detection: React.FC = () => {
                 </div>
               )}
 
-              {/* Feature Input Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
-                {features.map((value, index) => (
-                  <div key={index}>
-                    <label className="block text-sm text-navy-300 mb-2">
-                      Feature {index + 1}
-                    </label>
-                    <input
-                      type="number"
-                      value={value}
-                      onChange={(e) =>
-                        handleFeatureChange(index, e.target.value)
-                      }
-                      step="0.01"
-                      min="-1"
-                      max="1"
-                      className="w-full px-3 py-2 bg-navy-800 border border-navy-600 rounded-lg text-cyan-300 focus:border-copper-500 focus:outline-none"
-                    />
+              {/* SCENARIO SELECTOR */}
+              <div className="mb-6 bg-navy-800 p-4 rounded-lg border border-navy-700">
+                <label className="block text-lg font-semibold text-cyan-300 mb-3">
+                  <Brain size={20} className="inline mr-2" />
+                  Select Simulation Scenario
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                   {[
+                     { id: 'normal', label: 'Normal Patient Access', desc: 'Standard physician record review', color: 'bg-green-500/10 border-green-500/30 hover:border-green-500' },
+                     { id: 'ddos', label: 'High Traffic (DDoS)', desc: 'Rapid repeated requests from same IP', color: 'bg-red-500/10 border-red-500/30 hover:border-red-500' },
+                     { id: 'mim', label: 'Man-in-the-Middle', desc: 'Intercepted packets with altered headers', color: 'bg-orange-500/10 border-orange-500/30 hover:border-orange-500' },
+                     { id: 'brute', label: 'Brute Force Login', desc: 'Multiple failed auth attempts', color: 'bg-yellow-500/10 border-yellow-500/30 hover:border-yellow-500' }
+                   ].map(scenario => (
+                     <div 
+                        key={scenario.id}
+                        onClick={() => {
+                           setSelectedScenario(scenario.id);
+                           // Mock feature generation logic for demo
+                           const base = Array(102).fill(0);
+                           if (scenario.id === 'normal') {
+                              // Low entropy, normal values
+                              setFeatures(base.map(() => Math.random() * 0.1));
+                           } else if (scenario.id === 'ddos') {
+                              // High packet counts (features 0-10)
+                              setFeatures(base.map((_, i) => i < 10 ? 0.8 + Math.random() * 0.2 : Math.random() * 0.1));
+                           } else if (scenario.id === 'mim') {
+                              // Abnormal protocol flags
+                              setFeatures(base.map((_, i) => i > 50 && i < 60 ? 0.9 : Math.random() * 0.2));
+                           } else {
+                              // Random noise
+                              setFeatures(base.map(() => Math.random()));
+                           }
+                        }}
+                        className={`cursor-pointer border rounded-lg p-4 transition-all ${selectedScenario === scenario.id ? 'ring-2 ring-cyan-400 bg-navy-700' : ''} ${scenario.color}`}
+                     >
+                        <h3 className="font-bold text-gray-200">{scenario.label}</h3>
+                        <p className="text-xs text-gray-400 mt-1">{scenario.desc}</p>
+                     </div>
+                   ))}
+                </div>
+              </div>
+
+              {/* Advanced (Hidden by default or minimized) */}
+              <div className="mb-6">
+                <details className="text-sm text-navy-400 cursor-pointer">
+                  <summary className="hover:text-cyan-300 transition-colors">Advanced: View Raw Features Vector</summary>
+                  <div className="mt-4 p-2 bg-navy-900 rounded font-mono text-xs break-all border border-navy-700">
+                    [{features.slice(0, 10).map(n => n.toFixed(2)).join(', ')} ... {features.length} total]
                   </div>
-                ))}
+                </details>
               </div>
 
               {/* Status */}

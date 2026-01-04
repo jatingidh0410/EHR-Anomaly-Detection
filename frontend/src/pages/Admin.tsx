@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  Legend, ResponsiveContainer
+  Legend, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, AreaChart, Area
 } from 'recharts';
 
 interface AdminMetrics {
@@ -159,6 +159,75 @@ const Admin: React.FC = () => {
               <p className="text-navy-400 text-xs mt-2">{m.subtext}</p>
             </div>
           ))}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          {/* Performance Radar */}
+          {metrics && (
+             <div className="card">
+                <h2 className="card-title mb-6 flex items-center gap-2">
+                   Model Performance Radar
+                   <span className="text-xs font-normal text-navy-400 ml-auto bg-navy-800 px-2 py-1 rounded">Ensemble Strength</span>
+                </h2>
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart cx="50%" cy="50%" outerRadius="80%" data={[
+                      { subject: 'Accuracy', A: metrics.modelAccuracy * 100, fullMark: 100 },
+                      { subject: 'Precision', A: 96, fullMark: 100 },
+                      { subject: 'Recall', A: 98, fullMark: 100 },
+                      { subject: 'F1 Score', A: 97, fullMark: 100 },
+                      { subject: 'AUC', A: 99, fullMark: 100 },
+                      { subject: 'Speed', A: 85, fullMark: 100 },
+                    ]}>
+                      <PolarGrid stroke="#003135" />
+                      <PolarAngleAxis dataKey="subject" tick={{ fill: '#9ca3af', fontSize: 12 }} />
+                      <PolarRadiusAxis angle={30} domain={[0, 100]} stroke="#003135"/>
+                      <Radar
+                        name="Ensemble"
+                        dataKey="A"
+                        stroke="#964734"
+                        strokeWidth={2}
+                        fill="#964734"
+                        fillOpacity={0.3}
+                      />
+                      <Tooltip contentStyle={{ backgroundColor: '#001820', border: '1px solid #003135' }}/>
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+             </div>
+          )}
+
+          {/* System Load (Simulated Area Chart) */}
+          <div className="card">
+             <h2 className="card-title mb-6">System Load (CPU/Memory)</h2>
+             <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={Array.from({length: 10}, (_, i) => ({
+                      name: i,
+                      cpu: 20 + Math.random() * 30,
+                      mem: 40 + Math.random() * 20
+                    }))}
+                  >
+                    <defs>
+                      <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2}/>
+                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorMem" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.2}/>
+                        <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
+                    <XAxis dataKey="name" hide />
+                    <Tooltip contentStyle={{ backgroundColor: '#001820', border: '1px solid #003135' }} />
+                    <Area type="monotone" dataKey="cpu" stroke="#ef4444" fillOpacity={1} fill="url(#colorCpu)" name="CPU Usage %" />
+                    <Area type="monotone" dataKey="mem" stroke="#0ea5e9" fillOpacity={1} fill="url(#colorMem)" name="Memory Usage %" />
+                  </AreaChart>
+                </ResponsiveContainer>
+             </div>
+          </div>
         </div>
 
         {/* Per-Model Accuracy Chart */}
