@@ -53,7 +53,7 @@ export const Header: React.FC<HeaderProps> = ({
             {showLogout && (
               <button
                 onClick={handleLogout}
-                className="btn btn-sm btn-outline flex items-center gap-2 cursor-pointer hover:bg-red-500/10 active:scale-95 transition-all z-50"
+                className="flex items-center gap-2 px-3 py-1.5 border border-cyan-500/30 rounded-lg text-cyan-300 hover:text-white hover:bg-red-500/20 hover:border-red-500/50 active:scale-95 transition-all cursor-pointer z-50"
                 type="button"
                 aria-label="Logout"
               >
