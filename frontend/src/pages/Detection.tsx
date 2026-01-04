@@ -11,12 +11,15 @@ interface PredictionResult {
 }
 
 const Detection: React.FC = () => {
-  const [selectedScenario, setSelectedScenario] = useState('custom');
   const [features, setFeatures] = useState<number[]>(Array(102).fill(0));
-  const [fillStrategy, setFillStrategy] = useState<FillStrategy>('random');
+  
   const [result, setResult] = useState<PredictionResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
+  
+  // Strategy State
+  const [fillStrategy, setFillStrategy] = useState<FillStrategy>('random');
+  
   const { normalizeFeatures, updateConfig } = useFeatureNormalization({
      fillStrategy
   });
@@ -27,10 +30,61 @@ const Detection: React.FC = () => {
     updateConfig({ fillStrategy: strategy });
   };
 
-
+  const handleManualChange = (value: string) => {
+      // Parse comma separated values, but DON'T pad immediately.
+      // Allow the user to type freely.
+      const parts = value.split(',').map(p => parseFloat(p.trim())).filter(n => !isNaN(n));
+      setFeatures(parts);
+  };
+  
   const handleAutoFill = () => {
-    const normalized = normalizeFeatures(features);
-    setFeatures(normalized);
+    // Strategy-specific behaviors for better UX
+    
+    if (fillStrategy === 'random') {
+        // "Smart Random": Generates a Cohesive Scenario (Safe or Threat)
+        // Overwrites existing data to provide a fresh test case
+        const isThreat = Math.random() > 0.5;
+        const base = new Array(102).fill(0);
+        
+        if (isThreat) {
+            // GENERATE THREAT DATA
+            // Reverting to MASSIVE values because the model clearly expects
+            // DDoS-scale traffic (millions of bytes/packets) to trigger a threat.
+            const attackType = Math.random() > 0.5 ? 'ddos' : 'brute';
+            
+            if (attackType === 'ddos') {
+                // DDoS: EXTREME traffic on first 40 features
+                for(let i=0; i<102; i++) {
+                    if (i < 40) base[i] = 100000 + Math.random() * 500000; // 100k - 600k
+                    else base[i] = Math.random() * 1000; // High noise
+                }
+            } else {
+                // Brute Force: High traffic on specific login-related features
+                for(let i=0; i<102; i++) {
+                    if (i >= 40 && i < 60) base[i] = 5000 + Math.random() * 5000; // 5k - 10k
+                    else base[i] = Math.random() * 500;
+                }
+            }
+        } else {
+            // GENERATE SAFE DATA
+            // Range: 0 - 50 (Quiet, normal traffic)
+            for(let i=0; i<102; i++) {
+                base[i] = Math.random() * 50; 
+            }
+        }
+        setFeatures(base);
+        
+    } else if (fillStrategy === 'zero') {
+        // "Fill Zero": Explicitly RESET the form to all zeros
+        // This ensures it works even if the form is already full
+        setFeatures(Array(102).fill(0));
+        
+    } else {
+        // "Fill Mean": PAD the remaining slots using mean of existing
+        // This preserves user input and just fills the gaps
+        const normalized = normalizeFeatures(features);
+        setFeatures(normalized);
+    }
   };
 
   const handlePredict = async () => {
@@ -43,8 +97,11 @@ const Detection: React.FC = () => {
     setError('');
 
     try {
-      const normalized = normalizeFeatures(features);
-      const response = await api.detectAnomaly(normalized);
+      // Ensure we always send 102 features, padding if necessary
+      // This handles cases where user types "0.5" and clicks Predict immediately
+      const finalFeatures = normalizeFeatures(features);
+      
+      const response = await api.detectAnomaly(finalFeatures);
 
       setResult({
         prediction: response.data.prediction,
@@ -76,24 +133,6 @@ const Detection: React.FC = () => {
           {/* Input Section */}
           <div className="lg:col-span-2">
             <div className="card">
-              <div className="flex justify-between items-center mb-6">
-                 <h2 className="text-xl font-semibold text-cyan-300">
-                  Feature Input
-                </h2>
-                <div className="flex items-center gap-2">
-                  <label className="text-sm text-navy-300">Fill Strategy:</label>
-                  <select 
-                    value={fillStrategy}
-                    onChange={handleStrategyChange}
-                    className="bg-navy-700 border border-navy-600 text-cyan-300 text-sm rounded-lg p-2 focus:ring-copper-500 focus:border-copper-500"
-                  >
-                    <option value="random">Random</option>
-                    <option value="zero">Zero Fill</option>
-                    <option value="mean">Mean Fill</option>
-                  </select>
-                </div>
-              </div>
-
               {/* Error Alert */}
               {error && (
                 <div className="mb-6 p-4 bg-red-900/20 border border-red-500/30 rounded-lg flex items-center gap-3">
@@ -102,96 +141,52 @@ const Detection: React.FC = () => {
                 </div>
               )}
 
-              {/* SCENARIO SELECTOR */}
-              <div className="mb-6 bg-navy-800 p-4 rounded-lg border border-navy-700">
-                <label className="block text-lg font-semibold text-cyan-300 mb-3">
-                  <Brain size={20} className="inline mr-2" />
-                  Select Simulation Scenario
-                </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   {[
-                     { id: 'normal', label: 'Normal Patient Access', desc: 'Standard physician record review', color: 'bg-green-500/10 border-green-500/30 hover:border-green-500' },
-                     { id: 'ddos', label: 'High Traffic (DDoS)', desc: 'Rapid repeated requests from same IP', color: 'bg-red-500/10 border-red-500/30 hover:border-red-500' },
-                     { id: 'mim', label: 'Man-in-the-Middle', desc: 'Intercepted packets with altered headers', color: 'bg-orange-500/10 border-orange-500/30 hover:border-orange-500' },
-                     { id: 'brute', label: 'Brute Force Login', desc: 'Multiple failed auth attempts', color: 'bg-yellow-500/10 border-yellow-500/30 hover:border-yellow-500' }
-                   ].map(scenario => (
-                     <div 
-                        key={scenario.id}
-                        onClick={() => {
-                           setSelectedScenario(scenario.id);
-                           // Mock feature generation logic for demo
-                           const base = Array(102).fill(0);
-                           if (scenario.id === 'normal') {
-                              // Low entropy, normal values
-                              setFeatures(base.map(() => Math.random() * 0.1));
-                           } else if (scenario.id === 'ddos') {
-                              // High packet counts (features 0-10)
-                              setFeatures(base.map((_, i) => i < 10 ? 0.8 + Math.random() * 0.2 : Math.random() * 0.1));
-                           } else if (scenario.id === 'mim') {
-                              // Abnormal protocol flags
-                              setFeatures(base.map((_, i) => i > 50 && i < 60 ? 0.9 : Math.random() * 0.2));
-                           } else {
-                              // Random noise
-                              setFeatures(base.map(() => Math.random()));
-                           }
-                        }}
-                        className={`cursor-pointer border rounded-lg p-4 transition-all ${selectedScenario === scenario.id ? 'ring-2 ring-cyan-400 bg-navy-700' : ''} ${scenario.color}`}
-                     >
-                        <h3 className="font-bold text-gray-200">{scenario.label}</h3>
-                        <p className="text-xs text-gray-400 mt-1">{scenario.desc}</p>
-                     </div>
-                   ))}
-                </div>
-              </div>
-
-              {/* Advanced (Hidden by default or minimized) */}
-              <div className="mb-6">
-                <details className="text-sm text-navy-400 cursor-pointer">
-                  <summary className="hover:text-cyan-300 transition-colors">Advanced: View Raw Features Vector</summary>
-                  <div className="mt-4 p-2 bg-navy-900 rounded font-mono text-xs break-all border border-navy-700">
-                    [{features.slice(0, 10).map(n => n.toFixed(2)).join(', ')} ... {features.length} total]
+              {/* MANUAL INPUT FORM */}
+              <div className="mb-8">
+                  <div className="flex justify-between items-center mb-4">
+                      <label className="block text-sm text-navy-300">
+                          Manual Feature Input (Comma Separated, 102 features)
+                      </label>
+                      <div className="flex items-center gap-3">
+                          <select 
+                             value={fillStrategy}
+                             onChange={handleStrategyChange}
+                             className="bg-navy-900 border border-navy-600 text-cyan-300 text-sm rounded-lg px-3 py-2 focus:ring-cyan-500 focus:border-cyan-500"
+                          >
+                             <option value="random">Fill Random</option>
+                             <option value="zero">Fill Zero</option>
+                             <option value="mean">Fill Mean</option>
+                          </select>
+                          <button 
+                             onClick={handleAutoFill}
+                             className="text-sm px-3 py-2 bg-navy-700 hover:bg-navy-600 border border-navy-500 rounded text-cyan-300 transition-colors"
+                          >
+                             Apply Auto-Fill
+                          </button>
+                      </div>
                   </div>
-                </details>
+                  
+                  <textarea
+                      rows={6} 
+                      value={features.join(', ')}
+                      onChange={(e) => handleManualChange(e.target.value)}
+                      className="w-full px-4 py-3 bg-navy-800 border border-navy-600 rounded-lg text-cyan-300 font-mono text-xs focus:border-copper-500 focus:outline-none"
+                      placeholder="e.g. 0.5, 1.2, 0.0, ..."
+                  />
+                  <div className="mt-2 flex justify-between text-xs text-navy-400">
+                      <span>Current Count: {features.length} / 102</span>
+                  </div>
               </div>
 
-              {/* Status */}
-              <div className="mb-6 p-3 bg-navy-800 rounded-lg border border-navy-700">
-                <p className="text-sm text-navy-300">
-                  <span className="text-cyan-300 font-semibold">
-                    {features.length}
-                  </span>
-                  {' '}
-                  features provided
-                  {features.length < 102 && (
-                    <>
-                      {' '}
-                      •{' '}
-                      <span className="text-copper-400 font-semibold">
-                        {102 - features.length}
-                      </span>
-                      {' '}
-                      will be auto-filled using <span className="text-copper-400 font-semibold uppercase">{fillStrategy}</span> strategy
-                    </>
-                  )}
-                </p>
-              </div>
-
-              {/* Buttons */}
-              <div className="flex gap-3">
-                <button
-                  onClick={handleAutoFill}
-                  className="flex-1 btn btn-primary bg-copper-600 hover:bg-copper-700"
-                >
-                  Auto-Fill to 102
-                </button>
-                <button
+              {/* ACTION BUTTONS */}
+              <button
                   onClick={handlePredict}
                   disabled={loading}
-                  className="flex-1 btn btn-primary bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50"
+                  className="w-full btn btn-primary bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 py-4 text-lg font-bold shadow-lg shadow-cyan-900/20 mb-8"
                 >
-                  {loading ? 'Analyzing...' : 'Predict'}
-                </button>
-              </div>
+                  {loading ? 'Analyzing Pattern...' : 'Run Analysis'}
+              </button>
+
             </div>
           </div>
 

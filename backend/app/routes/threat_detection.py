@@ -45,14 +45,28 @@ def detect_threat():
         result = detector.predict(X)
         
         # Extract values
-        prediction = int(result['prediction'][0])
-        confidence = float(result['confidence'][0])  # ✅ Attack probability
+        # Raw prediction might be from hard-voting (0) while probability (0.59) suggests Threat.
+        # We prioritize the probability/confidence score for consistency.
+        # confidence = Probability of Class 1 (Attack)
+        raw_prediction_vote = int(result['prediction'][0])
+        confidence = float(result['confidence'][0]) 
         
+        # Override prediction based on probability
+        # If model is 59% sure it's an attack, we should flag it.
+        if confidence > 0.5:
+            prediction = 1
+            type_label = "Malware"  # You can map specific attack types if available
+        else:
+            prediction = 0
+            type_label = "Normal"
+
         # Determine severity
         if confidence > config.THREAT_THRESHOLDS["critical"]:
             severity = "critical"
         elif confidence > config.THREAT_THRESHOLDS["warning"]:
             severity = "warning"
+        elif prediction == 1:
+            severity = "info" # Low confidence threat
         else:
             severity = "info"
         
@@ -64,7 +78,7 @@ def detect_threat():
             "severity": severity,
             "threat_type": 1 if prediction == 1 else 0,
             "source_ip": "192.168.1.105",  # Simulated
-            "type": "Malware" if prediction == 1 else "Normal"
+            "type": type_label
         }
         db.add_threat(threat_record)
         
